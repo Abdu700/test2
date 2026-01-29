@@ -57,10 +57,7 @@ body {
     left: 0;
     transform-origin: 0 0;
     will-change: transform;
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-    perspective: 1000;
-    -webkit-perspective: 1000;
+    /* Removed perspective and 3D props that cause issues on some mobile devices */
 }
 
 /* === Layers === */
@@ -101,7 +98,7 @@ body {
 .skill-node {
     position: absolute;
     border-radius: 50%;
-    background-color: var(--color-skill-bg);
+    background-color: var(--color-background);
     border: 3px solid var(--color-disabled);
     cursor: pointer;
     pointer-events: auto;
@@ -110,8 +107,9 @@ body {
     justify-content: center;
     user-select: none;
     transform: translate(-50%, -50%);
-    /* Centered on coordinates */
     transition: transform 0.1s ease;
+    /* Performance optimization */
+    contain: layout style;
 }
 
 /* Background image for icon */
@@ -126,7 +124,7 @@ body {
     image-rendering: crisp-edges;
 }
 
-/* Node States */
+/* Node States - Using Opacity instead of Filter for better mobile performance */
 
 /* State 1: Locked (0 points, line before NOT active) */
 .skill-node.locked {
@@ -136,8 +134,8 @@ body {
 }
 
 .skill-node.locked .skill-icon {
-    filter: brightness(0.5) grayscale(1);
-    opacity: 0.7;
+    opacity: 0.2;
+    /* Cheaper than filter: grayscale() */
 }
 
 /* State 2: Unlocked (0 points, line before IS active) */
@@ -146,17 +144,16 @@ body {
 }
 
 .skill-node.unlocked .skill-icon {
-    filter: brightness(0.7) grayscale(1);
-    opacity: 0.8;
+    opacity: 0.4;
 }
 
 /* State 3: Active (1+ points, not maxed) */
 .skill-node.active {
+    border-width: 4px;
     background-color: var(--color-background);
 }
 
 .skill-node.active .skill-icon {
-    filter: brightness(1) saturate(1.2);
     opacity: 1;
 }
 
@@ -167,7 +164,8 @@ body {
 }
 
 .skill-node.maxed .skill-icon {
-    filter: brightness(0) invert(0);
+    /* Using mix-blend-mode for the black icon on bright background is cleaner */
+    filter: brightness(0);
     opacity: 1;
 }
 
