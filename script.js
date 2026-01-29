@@ -153,7 +153,12 @@ let viewState = {
     lastY: 0,
     isPinching: false,
     startDist: 0,
-    startScale: 1
+    startScale: 1,
+    vx: 0,
+    vy: 0,
+    friction: 0.95,
+    lastTime: 0,
+    dragDistance: 0
 };
 
 // DOM Elements
@@ -243,7 +248,6 @@ function initializeDOM() {
             node.appendChild(lock);
 
             // Interactivity
-            node.addEventListener('pointerdown', (e) => e.stopPropagation()); // Prevent drag start on node click
             node.addEventListener('click', (e) => handleNodeClick(e, skill));
             node.addEventListener('contextmenu', (e) => handleNodeRightClick(e, skill));
 
@@ -382,6 +386,7 @@ function canDowngrade(skill, ignoreId = null) {
 
 // === INTERACTION HANDLERS ===
 function handleNodeClick(e, skill) {
+    if (viewState.dragDistance > 10) return; // Ignore if user was panning
     e.preventDefault();
     if (canUpgrade(skill)) {
         const s = state.skills[skill.id];
@@ -394,6 +399,7 @@ function handleNodeClick(e, skill) {
 }
 
 function handleNodeRightClick(e, skill) {
+    if (viewState.dragDistance > 10) return; // Ignore if user was panning
     e.preventDefault();
     if (canDowngrade(skill)) {
         const s = state.skills[skill.id];
@@ -525,33 +531,74 @@ function centerTree() {
 function setupInteractions() {
     // Desktop Pan
     viewport.addEventListener('pointerdown', (e) => {
-        if (e.target.closest('.skill-node')) return; // Don't drag if clicking node
         viewState.isDragging = true;
         viewState.lastX = e.clientX;
         viewState.lastY = e.clientY;
+        viewState.lastTime = performance.now();
+        viewState.vx = 0;
+        viewState.vy = 0;
+        viewState.dragDistance = 0; // Reset distance
         viewport.style.cursor = 'grabbing';
+        cancelAnimationFrame(viewState.inertiaFrame);
     });
 
     window.addEventListener('pointermove', (e) => {
         if (!viewState.isDragging) return;
         e.preventDefault();
+        const now = performance.now();
+        const dt = now - viewState.lastTime;
+        if (dt === 0) return;
+
         const dx = e.clientX - viewState.lastX;
         const dy = e.clientY - viewState.lastY;
+
         viewState.offsetX += dx;
         viewState.offsetY += dy;
+        viewState.dragDistance += Math.hypot(dx, dy); // Track movement
+
+        // Calculate velocity (pixels per millisecond)
+        viewState.vx = dx / dt;
+        viewState.vy = dy / dt;
+
         viewState.lastX = e.clientX;
         viewState.lastY = e.clientY;
+        viewState.lastTime = now;
+
         setTransform();
     });
 
     window.addEventListener('pointerup', () => {
+        if (!viewState.isDragging) return;
         viewState.isDragging = false;
         viewport.style.cursor = 'grab';
+        startInertia();
     });
 
-    // Zoom towards mouse position
+    function startInertia() {
+        const step = (now) => {
+            if (viewState.isDragging || viewState.isPinching) return;
+
+            // Apply displacement
+            viewState.offsetX += viewState.vx * 16; // Approx 16ms per frame
+            viewState.offsetY += viewState.vy * 16;
+
+            // Apply friction
+            viewState.vx *= viewState.friction;
+            viewState.vy *= viewState.friction;
+
+            setTransform();
+
+            // Continue if velocity is high enough
+            if (Math.abs(viewState.vx) > 0.01 || Math.abs(viewState.vy) > 0.01) {
+                viewState.inertiaFrame = requestAnimationFrame(step);
+            }
+        };
+        viewState.inertiaFrame = requestAnimationFrame(step);
+    }
+
     viewport.addEventListener('wheel', (e) => {
         e.preventDefault();
+        cancelAnimationFrame(viewState.inertiaFrame);
         const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
         const newScale = Math.min(Math.max(0.3, viewState.scale * zoomFactor), 2.5);
 
