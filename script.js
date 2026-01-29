@@ -384,10 +384,16 @@ function canDowngrade(skill, ignoreId = null) {
     return true;
 }
 
-// === INTERACTION HANDLERS ===
 function handleNodeClick(e, skill) {
     if (viewState.dragDistance > 10) return; // Ignore if user was panning
     e.preventDefault();
+
+    // On mobile, show the mobile tooltip instead of directly adding points
+    if (isMobile) {
+        showMobileTooltip(skill);
+        return;
+    }
+
     if (canUpgrade(skill)) {
         const s = state.skills[skill.id];
         s.currentLevel++;
@@ -401,6 +407,13 @@ function handleNodeClick(e, skill) {
 function handleNodeRightClick(e, skill) {
     if (viewState.dragDistance > 10) return; // Ignore if user was panning
     e.preventDefault();
+
+    // On mobile, right-click doesn't happen, but we handle it anyway
+    if (isMobile) {
+        showMobileTooltip(skill);
+        return;
+    }
+
     if (canDowngrade(skill)) {
         const s = state.skills[skill.id];
         s.currentLevel--;
@@ -683,7 +696,22 @@ function setupInteractions() {
 }
 
 // === TOOLTIP ===
+// Mobile tooltip DOM elements
+const mobileTooltip = document.getElementById('mobileTooltip');
+const mobileTooltipOverlay = document.getElementById('mobileTooltipOverlay');
+const mobileTooltipName = document.getElementById('mobileTooltipName');
+const mobileTooltipDesc = document.getElementById('mobileTooltipDesc');
+const mobileTooltipLevel = document.getElementById('mobileTooltipLevel');
+const mobileTooltipClose = document.getElementById('mobileTooltipClose');
+const mobileTooltipMinus = document.getElementById('mobileTooltipMinus');
+const mobileTooltipPlus = document.getElementById('mobileTooltipPlus');
+
+let currentMobileSkill = null;
+
 function showTooltip(skill, element) {
+    // On mobile, don't show hover tooltip (handled by tap -> showMobileTooltip)
+    if (isMobile) return;
+
     const s = state.skills[skill.id];
     tooltipName.textContent = skill.name;
 
@@ -710,6 +738,63 @@ function showTooltip(skill, element) {
 function hideTooltip() {
     tooltip.classList.remove('visible');
 }
+
+// === MOBILE TOOLTIP ===
+function showMobileTooltip(skill) {
+    currentMobileSkill = skill;
+    const s = state.skills[skill.id];
+
+    mobileTooltipName.textContent = skill.name;
+    mobileTooltipDesc.textContent = skill.description;
+    updateMobileTooltipLevel();
+
+    mobileTooltipOverlay.classList.add('visible');
+    mobileTooltip.classList.add('visible');
+}
+
+function hideMobileTooltip() {
+    mobileTooltipOverlay.classList.remove('visible');
+    mobileTooltip.classList.remove('visible');
+    currentMobileSkill = null;
+}
+
+function updateMobileTooltipLevel() {
+    if (!currentMobileSkill) return;
+    const s = state.skills[currentMobileSkill.id];
+    mobileTooltipLevel.textContent = `${s.currentLevel}/${s.maxPoints}`;
+
+    // Update button states
+    mobileTooltipMinus.disabled = !canDowngrade(currentMobileSkill);
+    mobileTooltipPlus.disabled = !canUpgrade(currentMobileSkill);
+}
+
+// Mobile tooltip event listeners
+mobileTooltipClose.addEventListener('click', hideMobileTooltip);
+mobileTooltipOverlay.addEventListener('click', hideMobileTooltip);
+
+mobileTooltipMinus.addEventListener('click', () => {
+    if (!currentMobileSkill) return;
+    if (canDowngrade(currentMobileSkill)) {
+        const s = state.skills[currentMobileSkill.id];
+        s.currentLevel--;
+        state.pointsSpent[s.category]--;
+        updateVisuals();
+        updateURL();
+        updateMobileTooltipLevel();
+    }
+});
+
+mobileTooltipPlus.addEventListener('click', () => {
+    if (!currentMobileSkill) return;
+    if (canUpgrade(currentMobileSkill)) {
+        const s = state.skills[currentMobileSkill.id];
+        s.currentLevel++;
+        state.pointsSpent[s.category]++;
+        updateVisuals();
+        updateURL();
+        updateMobileTooltipLevel();
+    }
+});
 
 // === URL SHARING (Ported) ===
 const SKILL_IDS = [];
