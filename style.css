@@ -56,9 +56,13 @@ body {
     top: 0;
     left: 0;
     transform-origin: 0 0;
+    /* Prevent flickering on WebKit browsers */
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
 }
 
-/* On desktop, will-change helps. On mobile, it can cause the "disappearing" bug. */
+/* On desktop only: use will-change for smoother performance */
+/* On mobile, will-change can cause GPU memory issues leading to disappearing elements */
 @media (min-width: 1024px) {
     #treeContainer {
         will-change: transform;
