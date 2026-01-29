@@ -85,6 +85,9 @@ body {
     z-index: 1;
     pointer-events: none;
     overflow: visible;
+    /* Explicit dimensions to prevent collapse during zoom */
+    width: 1392px;
+    height: 613px;
 }
 
 #nodesLayer {
