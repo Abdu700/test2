@@ -504,7 +504,8 @@ function updateVisuals() {
 const viewport = document.getElementById('treeViewport');
 
 function setTransform() {
-    treeContainer.style.transform = `translate(${viewState.offsetX}px, ${viewState.offsetY}px) scale(${viewState.scale})`;
+    // Use translate3d for better stability on mobile GPUs
+    treeContainer.style.transform = `translate3d(${viewState.offsetX.toFixed(2)}px, ${viewState.offsetY.toFixed(2)}px, 0) scale(${viewState.scale.toFixed(4)})`;
 }
 
 function centerTree() {
@@ -632,10 +633,11 @@ function setupInteractions() {
     viewport.addEventListener('touchstart', (e) => {
         if (e.touches.length === 2) {
             viewState.isPinching = true;
-            viewState.startDist = Math.hypot(
+            const dist = Math.hypot(
                 e.touches[0].clientX - e.touches[1].clientX,
                 e.touches[0].clientY - e.touches[1].clientY
             );
+            viewState.startDist = Math.max(dist, 10); // Prevent divide by zero
             viewState.startScale = viewState.scale;
 
             // Store the center point of the pinch
