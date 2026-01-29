@@ -601,7 +601,9 @@ function setupInteractions() {
         e.preventDefault();
         cancelAnimationFrame(viewState.inertiaFrame);
         const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-        const newScale = Math.min(Math.max(0.3, viewState.scale * zoomFactor), 2.5);
+
+        const maxScale = isMobile ? 1.6 : 2.5;
+        const newScale = Math.min(Math.max(0.3, viewState.scale * zoomFactor), maxScale);
 
         // Get mouse position relative to viewport
         const rect = viewport.getBoundingClientRect();
@@ -659,7 +661,8 @@ function setupInteractions() {
                 e.touches[0].clientY - e.touches[1].clientY
             );
             const zoomFactor = dist / viewState.startDist;
-            const newScale = Math.min(Math.max(0.3, viewState.startScale * zoomFactor), 2.5);
+            const maxScale = isMobile ? 1.6 : 2.5;
+            const newScale = Math.min(Math.max(0.3, viewState.startScale * zoomFactor), maxScale);
 
             // Calculate the point on the tree that was at pinch center
             const treeX = (pinchCenterX - viewState.startOffsetX) / viewState.startScale;
