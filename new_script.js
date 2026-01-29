@@ -11,6 +11,9 @@ const COLORS = {
     lineDark: '#606576'
 };
 
+// Mobile detection (needs to be defined early)
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+
 const SKILL_DATA = {
     Conditioning: {
         skills: [
@@ -190,7 +193,6 @@ function initializeState() {
 function initializeDOM() {
     // 1. Draw Root Lines
     drawRootLines();
-
     // 2. Create Nodes & Edges
     for (const [category, data] of Object.entries(SKILL_DATA)) {
         const color = getCategoryColor(category);
@@ -220,12 +222,10 @@ function initializeDOM() {
             node.classList.add(isLarge ? 'large' : 'small');
             node.style.color = color; // For inheritance
 
-            // Icon
+            // Icon - use background-image (works without server)
             const icon = document.createElement('div');
             icon.className = 'skill-icon';
-            const iconUrl = `url('assets/skill-icons/${skill.id}.png')`;
-            icon.style.backgroundImage = iconUrl;
-            icon.style.setProperty('--icon-url', iconUrl);
+            icon.style.backgroundImage = `url('assets/skill-icons/${skill.id}.png')`;
             node.appendChild(icon);
 
             // Badge
@@ -255,30 +255,29 @@ function initializeDOM() {
         });
     }
 
-    // 3. Branch Labels
-    createBranchLabel('CONDITIONING', 454, 623, COLORS.conditioning, state.pointsSpent.Conditioning, 'Conditioning');
-    createBranchLabel('MOBILITY', 681, 386, COLORS.mobility, state.pointsSpent.Mobility, 'Mobility');
-    createBranchLabel('SURVIVAL', 908, 643, COLORS.survival, state.pointsSpent.Survival, 'Survival');
+    // 3. Branch Labels (moved down 20px)
+    createBranchLabel('CONDITIONING', 454, 643, COLORS.conditioning, state.pointsSpent.Conditioning, 'Conditioning');
+    createBranchLabel('MOBILITY', 681, 406, COLORS.mobility, state.pointsSpent.Mobility, 'Mobility');
+    createBranchLabel('SURVIVAL', 908, 663, COLORS.survival, state.pointsSpent.Survival, 'Survival');
 }
 
 function drawRootLines() {
-    // Conditioning (Green)
+    // Conditioning (Green) - Smooth curve toward center vertical path
     const p1 = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    p1.setAttribute("d", "M590 575 A40 40 0 0 1 660 620 L660 2000");
+    p1.setAttribute("d", "M580 575 C 660 575, 660 630, 660 685 L660 2000");
     p1.setAttribute("class", "root-line");
     p1.style.stroke = COLORS.conditioning;
     edgesLayer.appendChild(p1);
 
-    // Mobility (Yellow)
+    // Mobility (Yellow) - straight down
     const p2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
     p2.setAttribute("d", "M676 529 L676 2000");
     p2.setAttribute("class", "root-line");
     p2.style.stroke = COLORS.mobility;
     edgesLayer.appendChild(p2);
-
-    // Survival (Red)
+    // Survival (Red) - Smooth curve toward center vertical path
     const p3 = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    p3.setAttribute("d", "M790 600 A40 40 0 0 0 695 660 L695 2000");
+    p3.setAttribute("d", "M804 600 C 695 600, 695 650, 695 715 L695 2000");
     p3.setAttribute("class", "root-line");
     p3.style.stroke = COLORS.survival;
     edgesLayer.appendChild(p3);
@@ -417,10 +416,19 @@ function updateVisuals() {
 
         const nodeState = getNodeState(skill);
         const s = state.skills[skill.id];
+        const branchColor = getCategoryColor(s.category);
 
         // Reset classes
         node.classList.remove('locked', 'unlocked', 'active', 'maxed');
         node.classList.add(nodeState);
+
+        // Set border color based on state
+        if (nodeState === 'locked') {
+            node.style.borderColor = COLORS.disabled;
+        } else {
+            // unlocked, active, maxed all use branch color
+            node.style.borderColor = branchColor;
+        }
 
         // Update Badge
         const isMaxed = nodeState === 'maxed';
@@ -496,9 +504,21 @@ function setTransform() {
 function centerTree() {
     const w = window.innerWidth;
     const h = window.innerHeight;
-    viewState.scale = isMobile ? 0.6 : 1.0;
+
+    // Calculate scale to fit tree in viewport with some padding
+    const scaleX = (w - 50) / TREE_WIDTH;
+    const scaleY = (h - 100) / TREE_HEIGHT;
+    viewState.scale = Math.min(scaleX, scaleY, 1.0); // Don't scale above 1
+    if (isMobile) viewState.scale = Math.min(viewState.scale, 0.6);
+
+    // Ensure minimum scale
+    viewState.scale = Math.max(viewState.scale, 0.3);
+
+    // Center the tree - account for transform-origin being at 0,0
+    // After scaling, the tree takes up TREE_WIDTH * scale and TREE_HEIGHT * scale
     viewState.offsetX = (w - TREE_WIDTH * viewState.scale) / 2;
     viewState.offsetY = (h - TREE_HEIGHT * viewState.scale) / 2;
+
     setTransform();
 }
 
@@ -529,20 +549,27 @@ function setupInteractions() {
         viewport.style.cursor = 'grab';
     });
 
-    // Zoom
+    // Zoom towards mouse position
     viewport.addEventListener('wheel', (e) => {
         e.preventDefault();
-        const delta = e.deltaY > 0 ? 0.9 : 1.1;
-        const newScale = Math.min(Math.max(0.2, viewState.scale * delta), 3);
+        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+        const newScale = Math.min(Math.max(0.3, viewState.scale * zoomFactor), 2.5);
 
-        // Zoom towards pointer
+        // Get mouse position relative to viewport
         const rect = viewport.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
 
-        viewState.offsetX = mx - (mx - viewState.offsetX) * (newScale / viewState.scale);
-        viewState.offsetY = my - (my - viewState.offsetY) * (newScale / viewState.scale);
+        // Calculate the point on the tree that's under the mouse
+        const treeX = (mouseX - viewState.offsetX) / viewState.scale;
+        const treeY = (mouseY - viewState.offsetY) / viewState.scale;
+
+        // Update scale
         viewState.scale = newScale;
+
+        // Adjust offset so the same tree point stays under the mouse
+        viewState.offsetX = mouseX - treeX * viewState.scale;
+        viewState.offsetY = mouseY - treeY * viewState.scale;
 
         setTransform();
     }, { passive: false });
@@ -552,7 +579,9 @@ function setupInteractions() {
         // Optional: re-center or adjust constraints
     });
 
-    // Mobile Pinch Zoom (Simple Implementation)
+    // Mobile Pinch Zoom - zoom towards center of pinch
+    let pinchCenterX = 0, pinchCenterY = 0;
+
     viewport.addEventListener('touchstart', (e) => {
         if (e.touches.length === 2) {
             viewState.isPinching = true;
@@ -561,6 +590,15 @@ function setupInteractions() {
                 e.touches[0].clientY - e.touches[1].clientY
             );
             viewState.startScale = viewState.scale;
+
+            // Store the center point of the pinch
+            const rect = viewport.getBoundingClientRect();
+            pinchCenterX = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left;
+            pinchCenterY = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top;
+
+            // Store initial offset
+            viewState.startOffsetX = viewState.offsetX;
+            viewState.startOffsetY = viewState.offsetY;
         }
     });
 
@@ -572,7 +610,17 @@ function setupInteractions() {
                 e.touches[0].clientY - e.touches[1].clientY
             );
             const zoomFactor = dist / viewState.startDist;
-            viewState.scale = Math.min(Math.max(0.2, viewState.startScale * zoomFactor), 3);
+            const newScale = Math.min(Math.max(0.3, viewState.startScale * zoomFactor), 2.5);
+
+            // Calculate the point on the tree that was at pinch center
+            const treeX = (pinchCenterX - viewState.startOffsetX) / viewState.startScale;
+            const treeY = (pinchCenterY - viewState.startOffsetY) / viewState.startScale;
+
+            // Update scale and offset to keep that point at pinch center
+            viewState.scale = newScale;
+            viewState.offsetX = pinchCenterX - treeX * viewState.scale;
+            viewState.offsetY = pinchCenterY - treeY * viewState.scale;
+
             setTransform();
         }
     }, { passive: false });
@@ -741,8 +789,6 @@ document.getElementById('maxPointsInput').addEventListener('change', (e) => {
     updateURL();
 });
 
-// Constants for Mobile Check
-const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
 
 // Start
 init();
