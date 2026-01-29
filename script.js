@@ -517,8 +517,26 @@ function updateVisuals() {
 const viewport = document.getElementById('treeViewport');
 
 function setTransform() {
-    // Use translate3d for better stability on mobile GPUs
-    treeContainer.style.transform = `translate3d(${viewState.offsetX.toFixed(2)}px, ${viewState.offsetY.toFixed(2)}px, 0) scale(${viewState.scale.toFixed(4)})`;
+    // On mobile: use 2D translate to avoid GPU layer issues that cause disappearing
+    // On desktop: use translate3d for smoother performance
+    if (isMobile) {
+        treeContainer.style.transform = `translate(${viewState.offsetX.toFixed(1)}px, ${viewState.offsetY.toFixed(1)}px) scale(${viewState.scale.toFixed(3)})`;
+    } else {
+        treeContainer.style.transform = `translate3d(${viewState.offsetX.toFixed(2)}px, ${viewState.offsetY.toFixed(2)}px, 0) scale(${viewState.scale.toFixed(4)})`;
+    }
+}
+
+// Force browser to repaint the tree container - fixes mobile rendering issues
+function forceRepaint() {
+    // Method 1: Toggle a property that forces reflow
+    treeContainer.style.opacity = '0.999';
+
+    // Use requestAnimationFrame to ensure the change is rendered
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            treeContainer.style.opacity = '1';
+        });
+    });
 }
 
 function centerTree() {
@@ -690,8 +708,25 @@ function setupInteractions() {
         }
     }, { passive: false });
 
-    viewport.addEventListener('touchend', () => {
+    viewport.addEventListener('touchend', (e) => {
+        // If we were pinching, force a repaint to fix mobile GPU rendering issues
+        const wasPinching = viewState.isPinching;
         viewState.isPinching = false;
+
+        if (wasPinching) {
+            // Small delay to let browser finish its internal updates
+            setTimeout(() => {
+                forceRepaint();
+            }, 50);
+        }
+    });
+
+    // Also handle touchcancel - triggered when touch is interrupted by OS
+    viewport.addEventListener('touchcancel', () => {
+        if (viewState.isPinching) {
+            viewState.isPinching = false;
+            setTimeout(forceRepaint, 50);
+        }
     });
 }
 
