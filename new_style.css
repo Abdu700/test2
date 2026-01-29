@@ -1,0 +1,497 @@
+/* === ARC Raiders Skill Tree - DOM Implementation === */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    /* Remove mobile tap highlight */
+}
+
+:root {
+    --color-conditioning: #12FF70;
+    --color-mobility: #F7CF09;
+    --color-survival: #F3040E;
+    --color-disabled: #606576;
+    --color-background: #060505;
+    --color-skill-bg: #0A0B19;
+    --color-hover: #D9DEE7;
+    --color-line-dark: #606576;
+}
+
+body {
+    font-family: 'Barlow', sans-serif;
+    background: var(--color-background);
+    min-height: 100vh;
+    overflow: hidden;
+    color: #D1CBBF;
+}
+
+.skill-tree-wrapper {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 80%, rgba(15, 18, 30, 0.3) 0%, rgba(6, 5, 5, 0.8) 100%), var(--color-background);
+}
+
+/* === Viewport and Container === */
+#treeViewport {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    cursor: grab;
+    touch-action: none;
+    /* Disable browser handling of gestures */
+}
+
+#treeViewport:active {
+    cursor: grabbing;
+}
+
+#treeContainer {
+    position: absolute;
+    width: 1392px;
+    /* TREE_WIDTH */
+    height: 613px;
+    /* TREE_HEIGHT */
+    top: 50%;
+    left: 50%;
+    transform-origin: 0 0;
+    will-change: transform;
+    /* Transformation handled by JS */
+}
+
+/* === Layers === */
+#edgesLayer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+    overflow: visible;
+    /* Allow thick lines to bleed slightly */
+}
+
+#nodesLayer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    pointer-events: none;
+    /* Children will re-enable pointer events */
+}
+
+#labelsLayer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* === Nodes === */
+.skill-node {
+    position: absolute;
+    border-radius: 50%;
+    background-color: var(--color-skill-bg);
+    border: 3px solid var(--color-disabled);
+    cursor: pointer;
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    transform: translate(-50%, -50%);
+    /* Centered on coordinates */
+    transition: transform 0.1s ease;
+}
+
+/* Background image for icon */
+.skill-icon {
+    width: 70%;
+    height: 70%;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    pointer-events: none;
+    mask-size: contain;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    -webkit-mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-position: center;
+}
+
+/* Node States */
+.skill-node.locked {
+    border-color: var(--color-disabled);
+    background-color: var(--color-skill-bg);
+    cursor: not-allowed;
+}
+
+.skill-node.locked .skill-icon {
+    filter: grayscale(100%) brightness(0.6);
+    opacity: 0.6;
+}
+
+.skill-node.unlocked {
+    background-color: var(--color-skill-bg);
+    /* Border color set via inline style or specific classes */
+}
+
+.skill-node.unlocked .skill-icon {
+    filter: grayscale(100%) brightness(0.8);
+    opacity: 0.8;
+}
+
+
+.skill-node.active .skill-icon {
+    background-color: currentColor;
+    /* Uses the color set on the node */
+    mask-image: var(--icon-url);
+    -webkit-mask-image: var(--icon-url);
+}
+
+.skill-node.maxed {
+    background-color: currentColor;
+    /* Fill node with branch color */
+    box-shadow: 0 0 0 3px var(--color-background), 0 0 0 6px currentColor;
+    /* Double border effect */
+    border: none;
+}
+
+.skill-node.maxed .skill-icon {
+    background-color: #000;
+    mask-image: var(--icon-url);
+    -webkit-mask-image: var(--icon-url);
+}
+
+/* Large Node styling */
+.skill-node.large {
+    width: 70px;
+    height: 70px;
+}
+
+.skill-node.small {
+    width: 40px;
+    height: 40px;
+}
+
+/* Lock Icon overlay */
+.lock-icon {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    width: 20px;
+    height: 20px;
+    background-color: var(--color-skill-bg);
+    border: 2px solid var(--color-disabled);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+}
+
+.lock-icon::after {
+    content: '';
+    display: block;
+    width: 8px;
+    height: 6px;
+    background: var(--color-disabled);
+    border-radius: 1px;
+    position: relative;
+    top: 2px;
+}
+
+.lock-icon::before {
+    content: '';
+    position: absolute;
+    top: 3px;
+    width: 6px;
+    height: 6px;
+    border: 2px solid var(--color-disabled);
+    border-radius: 50% 50% 0 0;
+    border-bottom: 0;
+}
+
+/* Badges */
+.node-badge {
+    position: absolute;
+    bottom: -18px;
+    /* Adjusted position */
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-skill-bg);
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: bold;
+    color: var(--color-mobility);
+    /* Yellow text */
+    border: 2px solid;
+    /* Color inherited */
+    white-space: nowrap;
+    z-index: 10;
+    pointer-events: none;
+}
+
+/* === EDGES (SVG) === */
+path {
+    fill: none;
+    stroke-linecap: round;
+    transition: stroke 0.3s ease, stroke-width 0.3s ease;
+}
+
+.edge.inactive {
+    stroke: var(--color-line-dark);
+    stroke-width: 2px;
+}
+
+.edge.active {
+    stroke-width: 8px;
+    /* Stroke color set inline */
+}
+
+.root-line {
+    fill: none;
+    stroke-width: 6px;
+    stroke-linecap: round;
+}
+
+/* === LABELS === */
+.branch-label-group {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    /* Centered */
+    text-align: center;
+    pointer-events: none;
+}
+
+.label-name {
+    font-family: 'Urbanist', sans-serif;
+    font-weight: 600;
+    font-size: 24px;
+    opacity: 0.9;
+    margin-bottom: 5px;
+}
+
+.label-count {
+    font-family: 'Barlow', sans-serif;
+    font-weight: bold;
+    font-size: 38px;
+}
+
+/* === Header Controls (Same as before) === */
+.header-controls {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 100;
+}
+
+.header-btn {
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    padding: 10px 20px;
+    background: transparent;
+    border: 1px solid rgba(96, 101, 118, 0.4);
+    color: #D1CBBF;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.header-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(96, 101, 118, 0.8);
+}
+
+.header-btn:active {
+    background: rgba(255, 255, 255, 0.05);
+    transform: scale(0.98);
+}
+
+.header-btn.copied {
+    background: rgba(18, 255, 112, 0.2);
+    border-color: var(--color-conditioning);
+    color: var(--color-conditioning);
+}
+
+.points-counter {
+    position: relative;
+    font-family: 'Barlow', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 16px;
+    background: transparent;
+    border: 1px solid rgba(96, 101, 118, 0.4);
+    color: #D1CBBF;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.points-counter:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.points-counter.all-spent #pointsRemaining {
+    color: var(--color-survival);
+}
+
+.points-popup {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 8px;
+    padding: 16px;
+    background: #E3D9CA;
+    color: #150A0B;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    display: none;
+    min-width: 200px;
+    z-index: 101;
+}
+
+.points-popup.visible {
+    display: block;
+}
+
+.popup-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+.popup-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.1);
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.popup-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+    font-weight: 700;
+    background: #150A0B;
+    color: #E3D9CA;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.popup-btn:hover {
+    background: #2a2025;
+}
+
+.popup-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#maxPointsInput {
+    width: 50px;
+    text-align: center;
+    font-family: 'Barlow', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    background: white;
+}
+
+#maxPointsInput::-webkit-outer-spin-button,
+#maxPointsInput::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.popup-hint {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    font-size: 11px;
+    color: #606576;
+    text-align: center;
+    line-height: 1.5;
+}
+
+/* === Tooltip === */
+.tooltip {
+    position: fixed;
+    background: #FFF;
+    color: #150A0B;
+    padding: 12px 16px;
+    border-radius: 8px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    z-index: 1000;
+    width: 320px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.tooltip.visible {
+    opacity: 1;
+}
+
+.tooltip-name {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.tooltip-desc {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #817D83;
+    white-space: pre-wrap;
+}
+
+/* === Mobile Adjustments === */
+@media (max-width: 600px) {
+    .header-controls {
+        top: 8px;
+        right: 8px;
+        gap: 8px;
+    }
+
+    .header-btn {
+        padding: 8px 12px;
+        font-size: 11px;
+    }
+
+    .points-counter {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+}
