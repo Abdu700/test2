@@ -45,10 +45,25 @@
             </div>
         </div>
 
-        <!-- Tooltip -->
+        <!-- Tooltip (Desktop) -->
         <div class="tooltip" id="tooltip">
             <div class="tooltip-name" id="tooltipName">Skill Name</div>
             <div class="tooltip-desc" id="tooltipDesc">Description</div>
+        </div>
+
+        <!-- Mobile Tooltip Bottom Sheet -->
+        <div class="mobile-tooltip-overlay" id="mobileTooltipOverlay"></div>
+        <div class="mobile-tooltip" id="mobileTooltip">
+            <div class="mobile-tooltip-header">
+                <div class="mobile-tooltip-name" id="mobileTooltipName">Skill Name</div>
+                <button class="mobile-tooltip-close" id="mobileTooltipClose">×</button>
+            </div>
+            <div class="mobile-tooltip-desc" id="mobileTooltipDesc">Description</div>
+            <div class="mobile-tooltip-controls">
+                <button class="mobile-tooltip-btn" id="mobileTooltipMinus">−</button>
+                <div class="mobile-tooltip-level" id="mobileTooltipLevel">0/5</div>
+                <button class="mobile-tooltip-btn" id="mobileTooltipPlus">+</button>
+            </div>
         </div>
 
         <!-- Floating particles container -->
