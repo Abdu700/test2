@@ -57,6 +57,10 @@ body {
     left: 0;
     transform-origin: 0 0;
     will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    perspective: 1000;
+    -webkit-perspective: 1000;
 }
 
 /* === Layers === */
