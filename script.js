@@ -528,13 +528,17 @@ function setTransform() {
 
 // Force browser to repaint the tree container - fixes mobile rendering issues
 function forceRepaint() {
-    // Method 1: Toggle a property that forces reflow
-    treeContainer.style.opacity = '0.999';
+    // Method 1: Force reflow by reading offsetHeight
+    void treeContainer.offsetHeight;
 
-    // Use requestAnimationFrame to ensure the change is rendered
+    // Method 2: Re-apply the current transform to force GPU to re-render
+    const currentTransform = treeContainer.style.transform;
+    treeContainer.style.transform = 'none';
+
+    // Use double requestAnimationFrame to ensure the change is rendered
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-            treeContainer.style.opacity = '1';
+            treeContainer.style.transform = currentTransform;
         });
     });
 }
@@ -561,8 +565,11 @@ function centerTree() {
 }
 
 function setupInteractions() {
-    // Desktop Pan
+    // Desktop Pan (also used for single touch on mobile)
     viewport.addEventListener('pointerdown', (e) => {
+        // Don't start dragging if we're pinching or if it's a multi-touch
+        if (viewState.isPinching) return;
+
         viewState.isDragging = true;
         viewState.lastX = e.clientX;
         viewState.lastY = e.clientY;
@@ -575,6 +582,11 @@ function setupInteractions() {
     });
 
     window.addEventListener('pointermove', (e) => {
+        // Stop panning if pinch started
+        if (viewState.isPinching) {
+            viewState.isDragging = false;
+            return;
+        }
         if (!viewState.isDragging) return;
         e.preventDefault();
         const now = performance.now();
@@ -603,7 +615,11 @@ function setupInteractions() {
         if (!viewState.isDragging) return;
         viewState.isDragging = false;
         viewport.style.cursor = 'grab';
-        startInertia();
+
+        // Only start inertia if we weren't pinching
+        if (!viewState.isPinching) {
+            startInertia();
+        }
     });
 
     function startInertia() {
@@ -711,22 +727,26 @@ function setupInteractions() {
     viewport.addEventListener('touchend', (e) => {
         // If we were pinching, force a repaint to fix mobile GPU rendering issues
         const wasPinching = viewState.isPinching;
-        viewState.isPinching = false;
 
-        if (wasPinching) {
-            // Small delay to let browser finish its internal updates
+        // Only end pinch mode if we have less than 2 touches remaining
+        if (e.touches.length < 2) {
+            viewState.isPinching = false;
+            viewState.isDragging = false; // Also stop any dragging
+        }
+
+        if (wasPinching && e.touches.length === 0) {
+            // All fingers lifted after pinch - force repaint
             setTimeout(() => {
                 forceRepaint();
-            }, 50);
+            }, 100);
         }
     });
 
     // Also handle touchcancel - triggered when touch is interrupted by OS
     viewport.addEventListener('touchcancel', () => {
-        if (viewState.isPinching) {
-            viewState.isPinching = false;
-            setTimeout(forceRepaint, 50);
-        }
+        viewState.isPinching = false;
+        viewState.isDragging = false;
+        setTimeout(forceRepaint, 100);
     });
 }
 
