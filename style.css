@@ -1,638 +1,77 @@
-/* === ARC Raiders Skill Tree - DOM Implementation === */
-
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
-    /* Remove mobile tap highlight */
-}
-
-:root {
-    --color-conditioning: #12FF70;
-    --color-mobility: #F7CF09;
-    --color-survival: #F3040E;
-    --color-disabled: #606576;
-    --color-background: #060505;
-    --color-skill-bg: #0A0B19;
-    --color-hover: #D9DEE7;
-    --color-line-dark: #606576;
-}
-
-body {
-    font-family: 'Barlow', sans-serif;
-    background: var(--color-background);
-    min-height: 100vh;
-    overflow: hidden;
-    color: #D1CBBF;
-}
-
-.skill-tree-wrapper {
-    width: 100vw;
-    height: 100vh;
-    position: relative;
-    overflow: hidden;
-    background: radial-gradient(circle at 50% 80%, rgba(15, 18, 30, 0.3) 0%, rgba(6, 5, 5, 0.8) 100%), var(--color-background);
-}
-
-/* === Viewport and Container === */
-#treeViewport {
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    cursor: grab;
-    touch-action: none;
-    /* Disable browser handling of gestures */
-}
-
-#treeViewport:active {
-    cursor: grabbing;
-}
-
-#treeContainer {
-    position: absolute;
-    width: 1392px;
-    height: 613px;
-    top: 0;
-    left: 0;
-    transform-origin: 0 0;
-    /* Prevent flickering on WebKit browsers */
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-}
-
-/* On desktop only: use will-change for smoother performance */
-/* On mobile, will-change can cause GPU memory issues leading to disappearing elements */
-@media (min-width: 1024px) {
-    #treeContainer {
-        will-change: transform;
-    }
-}
-
-/* === Layers === */
-#edgesLayer,
-#nodesLayer,
-#labelsLayer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    /* Removed transform: translateZ(0) - causes GPU memory issues on mobile zoom */
-}
-
-#edgesLayer {
-    z-index: 1;
-    pointer-events: none;
-    overflow: visible;
-    /* Explicit dimensions to prevent collapse during zoom */
-    width: 1392px;
-    height: 613px;
-}
-
-#nodesLayer {
-    z-index: 2;
-    pointer-events: none;
-}
-
-#labelsLayer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 0;
-    pointer-events: none;
-}
-
-/* === Nodes === */
-.skill-node {
-    position: absolute;
-    border-radius: 50%;
-    background-color: var(--color-background);
-    border: 3px solid var(--color-disabled);
-    cursor: pointer;
-    pointer-events: auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    user-select: none;
-    transform: translate(-50%, -50%);
-    transition: transform 0.1s ease;
-    /* Performance optimization */
-    contain: layout style;
-}
-
-/* Background image for icon */
-.skill-icon {
-    width: 70%;
-    height: 70%;
-    pointer-events: none;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    image-rendering: -webkit-optimize-contrast;
-    image-rendering: crisp-edges;
-}
-
-/* Node States - Using Opacity instead of Filter for better mobile performance */
-
-/* State 1: Locked (0 points, line before NOT active) */
-.skill-node.locked {
-    border-color: var(--color-disabled);
-    background-color: var(--color-background);
-    cursor: not-allowed;
-}
-
-.skill-node.locked .skill-icon {
-    opacity: 0.2;
-    /* Cheaper than filter: grayscale() */
-}
-
-/* State 2: Unlocked (0 points, line before IS active) */
-.skill-node.unlocked {
-    background-color: var(--color-background);
-}
-
-.skill-node.unlocked .skill-icon {
-    opacity: 0.4;
-}
-
-/* State 3: Active (1+ points, not maxed) */
-.skill-node.active {
-    border-width: 4px;
-    background-color: var(--color-background);
-}
-
-.skill-node.active .skill-icon {
-    opacity: 1;
-}
-
-/* State 4: Maxed */
-.skill-node.maxed {
-    background-color: currentColor;
-    border-color: currentColor;
-}
-
-.skill-node.maxed .skill-icon {
-    /* Using mix-blend-mode for the black icon on bright background is cleaner */
-    filter: brightness(0);
-    opacity: 1;
-}
-
-/* Large Node styling */
-.skill-node.large {
-    width: 70px;
-    height: 70px;
-}
-
-.skill-node.small {
-    width: 40px;
-    height: 40px;
-}
-
-/* Lock Icon overlay */
-.lock-icon {
-    position: absolute;
-    bottom: -5px;
-    left: -5px;
-    width: 20px;
-    height: 20px;
-    background-color: var(--color-skill-bg);
-    border: 2px solid var(--color-disabled);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 5;
-}
-
-.lock-icon::after {
-    content: '';
-    display: block;
-    width: 8px;
-    height: 6px;
-    background: var(--color-disabled);
-    border-radius: 1px;
-    position: relative;
-    top: 2px;
-}
-
-.lock-icon::before {
-    content: '';
-    position: absolute;
-    top: 3px;
-    width: 6px;
-    height: 6px;
-    border: 2px solid var(--color-disabled);
-    border-radius: 50% 50% 0 0;
-    border-bottom: 0;
-}
-
-/* Badges */
-.node-badge {
-    position: absolute;
-    bottom: -18px;
-    /* Adjusted position */
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--color-skill-bg);
-    padding: 1px 6px;
-    border-radius: 8px;
-    font-size: 10px;
-    font-weight: bold;
-    color: var(--color-mobility);
-    /* Yellow text */
-    border: 2px solid;
-    /* Color inherited */
-    white-space: nowrap;
-    z-index: 10;
-    pointer-events: none;
-}
-
-/* === EDGES (SVG) === */
-path {
-    fill: none;
-    stroke-linecap: round;
-    transition: stroke 0.3s ease, stroke-width 0.3s ease;
-}
-
-.edge.inactive {
-    stroke: var(--color-line-dark);
-    stroke-width: 2px;
-}
-
-.edge.active {
-    stroke-width: 8px;
-    /* Stroke color set inline */
-}
-
-.root-line {
-    fill: none;
-    stroke-width: 6px;
-    stroke-linecap: round;
-}
-
-/* === LABELS === */
-.branch-label-group {
-    position: absolute;
-    transform: translate(-50%, -50%);
-    /* Centered */
-    text-align: center;
-    pointer-events: none;
-}
-
-.label-name {
-    font-family: 'Urbanist', sans-serif;
-    font-weight: 600;
-    font-size: 24px;
-    opacity: 0.9;
-    margin-bottom: 5px;
-}
-
-.label-count {
-    font-family: 'Barlow', sans-serif;
-    font-weight: bold;
-    font-size: 38px;
-}
-
-/* === Header Controls (Same as before) === */
-.header-controls {
-    position: fixed;
-    top: 16px;
-    right: 16px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    z-index: 100;
-}
-
-.header-btn {
-    font-family: 'Barlow', sans-serif;
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    padding: 10px 20px;
-    background: transparent;
-    border: 1px solid rgba(96, 101, 118, 0.4);
-    color: #D1CBBF;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.header-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(96, 101, 118, 0.8);
-}
-
-.header-btn:active {
-    background: rgba(255, 255, 255, 0.05);
-    transform: scale(0.98);
-}
-
-.header-btn.copied {
-    background: rgba(18, 255, 112, 0.2);
-    border-color: var(--color-conditioning);
-    color: var(--color-conditioning);
-}
-
-.points-counter {
-    position: relative;
-    font-family: 'Barlow', sans-serif;
-    font-size: 14px;
-    font-weight: 600;
-    padding: 10px 16px;
-    background: transparent;
-    border: 1px solid rgba(96, 101, 118, 0.4);
-    color: #D1CBBF;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    user-select: none;
-}
-
-.points-counter:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.points-counter.all-spent #pointsRemaining {
-    color: var(--color-survival);
-}
-
-.points-popup {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    margin-top: 8px;
-    padding: 16px;
-    background: #E3D9CA;
-    color: #150A0B;
-    border-radius: 8px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-    display: none;
-    min-width: 200px;
-    z-index: 101;
-}
-
-.points-popup.visible {
-    display: block;
-}
-
-.popup-title {
-    font-size: 14px;
-    font-weight: 600;
-    margin-bottom: 12px;
-    text-align: center;
-}
-
-.popup-controls {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    background: rgba(0, 0, 0, 0.1);
-    padding: 8px;
-    border-radius: 4px;
-}
-
-.popup-btn {
-    width: 32px;
-    height: 32px;
-    font-size: 18px;
-    font-weight: 700;
-    background: #150A0B;
-    color: #E3D9CA;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-}
-
-.popup-btn:hover {
-    background: #2a2025;
-}
-
-.popup-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-#maxPointsInput {
-    width: 50px;
-    text-align: center;
-    font-family: 'Barlow', sans-serif;
-    font-size: 14px;
-    font-weight: 600;
-    padding: 6px;
-    border: 1px solid rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
-    background: white;
-}
-
-#maxPointsInput::-webkit-outer-spin-button,
-#maxPointsInput::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-
-.popup-hint {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid rgba(0, 0, 0, 0.1);
-    font-size: 11px;
-    color: #606576;
-    text-align: center;
-    line-height: 1.5;
-}
-
-/* === Tooltip === */
-.tooltip {
-    position: fixed;
-    background: #FFF;
-    color: #150A0B;
-    padding: 12px 16px;
-    border-radius: 8px;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.15s ease;
-    z-index: 1000;
-    width: 320px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-}
-
-.tooltip.visible {
-    opacity: 1;
-}
-
-.tooltip-name {
-    font-size: 14px;
-    font-weight: 700;
-    margin-bottom: 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-}
-
-.tooltip-desc {
-    font-size: 14px;
-    font-weight: 400;
-    line-height: 1.5;
-    color: #817D83;
-    white-space: pre-wrap;
-}
-
-/* === Mobile Adjustments === */
-@media (max-width: 600px) {
-    .header-controls {
-        top: 8px;
-        right: 8px;
-        gap: 8px;
-    }
-
-    .header-btn {
-        padding: 8px 12px;
-        font-size: 11px;
-    }
-
-    .points-counter {
-        padding: 8px 12px;
-        font-size: 12px;
-    }
-
-    /* Hide desktop tooltip on mobile */
-    .tooltip {
-        display: none !important;
-    }
-}
-
-/* === Mobile Tooltip Bottom Sheet === */
-.mobile-tooltip {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: #1a1a1a;
-    color: #fff;
-    padding: 20px;
-    padding-bottom: calc(20px + env(safe-area-inset-bottom));
-    z-index: 2000;
-    transform: translateY(100%);
-    transition: transform 0.3s ease;
-    border-top-left-radius: 16px;
-    border-top-right-radius: 16px;
-    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
-}
-
-.mobile-tooltip.visible {
-    transform: translateY(0);
-}
-
-.mobile-tooltip-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 8px;
-}
-
-.mobile-tooltip-name {
-    font-family: 'Barlow', sans-serif;
-    font-size: 16px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #fff;
-    flex: 1;
-    padding-right: 16px;
-}
-
-.mobile-tooltip-close {
-    width: 28px;
-    height: 28px;
-    background: rgba(255, 255, 255, 0.1);
-    border: none;
-    border-radius: 50%;
-    color: #fff;
-    font-size: 18px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    transition: background 0.2s ease;
-}
-
-.mobile-tooltip-close:active {
-    background: rgba(255, 255, 255, 0.2);
-}
-
-.mobile-tooltip-desc {
-    font-family: 'Barlow', sans-serif;
-    font-size: 14px;
-    font-weight: 400;
-    line-height: 1.5;
-    color: #888;
-    margin-bottom: 20px;
-}
-
-.mobile-tooltip-controls {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-}
-
-.mobile-tooltip-btn {
-    width: 44px;
-    height: 44px;
-    background: #333;
-    border: none;
-    border-radius: 50%;
-    color: #fff;
-    font-size: 24px;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.2s ease, opacity 0.2s ease;
-}
-
-.mobile-tooltip-btn:active {
-    background: #444;
-}
-
-.mobile-tooltip-btn:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-}
-
-.mobile-tooltip-level {
-    font-family: 'Barlow', sans-serif;
-    font-size: 18px;
-    font-weight: 600;
-    color: #fff;
-    min-width: 50px;
-    text-align: center;
-}
-
-/* Overlay for mobile tooltip */
-.mobile-tooltip-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 1999;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
-}
-
-.mobile-tooltip-overlay.visible {
-    opacity: 1;
-    visibility: visible;
-}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ARC Raiders Skill Tree Builder</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700;800;900&family=Urbanist:wght@300&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="skill-tree-wrapper">
+        <!-- Header Controls -->
+        <div class="header-controls">
+            <button id="resetBtn" class="header-btn">RESET</button>
+            <button id="shareBtn" class="header-btn">SHARE</button>
+            <div id="pointsCounter" class="points-counter">
+                <span id="pointsRemaining">76</span> / <span id="maxPoints">76</span>
+                <div id="pointsPopup" class="points-popup">
+                    <div class="popup-title">Edit max points</div>
+                    <div class="popup-controls">
+                        <button id="decreaseMaxBtn" class="popup-btn">−</button>
+                        <input type="number" id="maxPointsInput" value="76" min="1">
+                        <button id="increaseMaxBtn" class="popup-btn">+</button>
+                    </div>
+                    <div class="popup-hint">
+                        <div>Lvl 75: 76 points</div>
+                        <div>Lvl 75 + Expedition 5 points: 81 points</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Tree Container (Pannable/Zoomable) -->
+        <div id="treeViewport">
+            <div id="treeContainer">
+                <svg id="edgesLayer" xmlns="http://www.w3.org/2000/svg" width="1392" height="613" viewBox="0 0 1392 613"
+                    preserveAspectRatio="xMinYMin meet"></svg>
+                <div id="nodesLayer"></div>
+                <div id="labelsLayer"></div>
+            </div>
+        </div>
+
+        <!-- Tooltip (Desktop) -->
+        <div class="tooltip" id="tooltip">
+            <div class="tooltip-name" id="tooltipName">Skill Name</div>
+            <div class="tooltip-desc" id="tooltipDesc">Description</div>
+        </div>
+
+        <!-- Mobile Tooltip Bottom Sheet -->
+        <div class="mobile-tooltip-overlay" id="mobileTooltipOverlay"></div>
+        <div class="mobile-tooltip" id="mobileTooltip">
+            <div class="mobile-tooltip-header">
+                <div class="mobile-tooltip-name" id="mobileTooltipName">Skill Name</div>
+                <button class="mobile-tooltip-close" id="mobileTooltipClose">×</button>
+            </div>
+            <div class="mobile-tooltip-desc" id="mobileTooltipDesc">Description</div>
+            <div class="mobile-tooltip-controls">
+                <button class="mobile-tooltip-btn" id="mobileTooltipMinus">−</button>
+                <div class="mobile-tooltip-level" id="mobileTooltipLevel">0/5</div>
+                <button class="mobile-tooltip-btn" id="mobileTooltipPlus">+</button>
+            </div>
+        </div>
+
+        <!-- Floating particles container -->
+        <div class="particles" id="particles"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
