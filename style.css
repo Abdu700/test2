@@ -74,8 +74,7 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    transform: translateZ(0);
-    /* Force layer creation for memory stability */
+    /* Removed transform: translateZ(0) - causes GPU memory issues on mobile zoom */
 }
 
 #edgesLayer {
@@ -495,4 +494,138 @@ path {
         padding: 8px 12px;
         font-size: 12px;
     }
+
+    /* Hide desktop tooltip on mobile */
+    .tooltip {
+        display: none !important;
+    }
+}
+
+/* === Mobile Tooltip Bottom Sheet === */
+.mobile-tooltip {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #1a1a1a;
+    color: #fff;
+    padding: 20px;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+    z-index: 2000;
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.mobile-tooltip.visible {
+    transform: translateY(0);
+}
+
+.mobile-tooltip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.mobile-tooltip-name {
+    font-family: 'Barlow', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #fff;
+    flex: 1;
+    padding-right: 16px;
+}
+
+.mobile-tooltip-close {
+    width: 28px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.2s ease;
+}
+
+.mobile-tooltip-close:active {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.mobile-tooltip-desc {
+    font-family: 'Barlow', sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #888;
+    margin-bottom: 20px;
+}
+
+.mobile-tooltip-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+}
+
+.mobile-tooltip-btn {
+    width: 44px;
+    height: 44px;
+    background: #333;
+    border: none;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 24px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.mobile-tooltip-btn:active {
+    background: #444;
+}
+
+.mobile-tooltip-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.mobile-tooltip-level {
+    font-family: 'Barlow', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+    min-width: 50px;
+    text-align: center;
+}
+
+/* Overlay for mobile tooltip */
+.mobile-tooltip-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.mobile-tooltip-overlay.visible {
+    opacity: 1;
+    visibility: visible;
 }
